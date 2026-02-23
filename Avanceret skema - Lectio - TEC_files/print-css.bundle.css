@@ -1,0 +1,199 @@
+.file-lectioprint-less {
+  color: blue;
+}
+/*
+BODY
+{
+	color:#000000;
+	background-color:#ffffff;
+	text-align:left;
+	font-size:90%; /* ALSO DEFINED IN lectio.js!!!
+	text-decoration: none;
+	padding:0;
+}
+    */
+IMG {
+  border: none;
+}
+TH {
+  text-align: left;
+}
+TEXTAREA,
+INPUT {
+  font-size: 1em;
+}
+.maintitle {
+  float: none;
+  display: block;
+  font-weight: 700;
+  font-size: 1.5em;
+  margin-bottom: 0.2em;
+  color: #475968;
+  text-decoration: none;
+  vertical-align: text-top;
+}
+.hidetabinputbutton {
+  display: none;
+}
+.shortcutletter {
+  text-decoration: inherit;
+}
+/*fjerner nedarvede borders fra tabeller inde i .list tabeller*/
+.list TABLE TR TD,
+.list TABLE TR TH {
+  border: none;
+}
+#helptipbutton,
+IMG.note_gif {
+  display: none;
+}
+TABLE#studieTabel,
+TABLE#studieTabel TD {
+  border: solid 1px #000000;
+  border-collapse: collapse;
+}
+/* Konsultationstildelinger */
+td.ledige_emner_ledig {
+  background-color: #ccff66 !important;
+}
+tr.afvig2 td,
+.afvig2,
+tr.afvigukendt td,
+.afvigukendt {
+  background-color: #ffdf0d !important;
+}
+tr.afvig1 td,
+.afvig1 {
+  background-color: #FFFFE0 !important;
+}
+tr.afvig0 td,
+.afvig0 {
+  background-color: #ccff66 !important;
+}
+.SelectedItem {
+  background-color: #ddeeff !important;
+}
+.locked {
+  background-color: #aaaaaa !important;
+}
+.freeCell,
+.FreeSlot {
+  background-color: #ffffff !important;
+}
+/* white */
+.attentionCell,
+.attentionCell TD {
+  background-color: #ffdf0d !important;
+}
+/* Yellow */
+.alertCell,
+.alertCell TD {
+  background-color: #ff310c !important;
+}
+/* Red */
+tr {
+  page-break-inside: avoid;
+}
+/* SAMLET HOLDRAPPORT & VIKARFINDER		*/
+tr.rapAfvig2 td,
+.rapAfvig2,
+tr.rapAfvigukendt td,
+.rapAfvigukendt {
+  background-color: #ffcaca !important;
+}
+/*pastel Red*/
+tr.rapAfvig1 td,
+.rapAfvig1 {
+  background-color: #ffffe0 !important;
+}
+/* pastel Yellow */
+tr.rapAfvig0 td,
+.rapAfvig0 {
+  background-color: #e0ffe0 !important;
+}
+/* pastel Green */
+/* Optag.dk */
+#CategoryTable,
+#CategoryTable TD,
+.avs,
+.avs TD {
+  border: solid 1px #000000;
+  border-collapse: collapse;
+}
+#CategoryTable TABLE TD {
+  border: none;
+}
+.attention,
+.attention TD,
+.attention TH {
+  color: #a31515 !important;
+  font-weight: normal;
+}
+/* bemærk, NB ... */
+.alert,
+.alert TH,
+.alert TD,
+.wizarderrortxt,
+.ValidationError,
+.warning {
+  color: #ff0000;
+}
+/* advarsel , fejl*/
+.screenHideThumb_printShowThumb IMG.Photo {
+  display: inline;
+}
+/*student photo thumb is printed, but not shown on screen*/
+.screenHide_printShow {
+  display: inline;
+}
+/* element is printed, but not shown on screen*/
+IMG.PhotoPrintHiRes {
+  height: 96px;
+  width: 72px;
+}
+.noprint,
+.button,
+#top,
+#bot,
+IMG.noprint {
+  visibility: hidden;
+  display: none !important;
+}
+.resetText {
+  font-weight: normal !important;
+  color: #333333 !important;
+  text-decoration: none !important;
+}
+.breakAfter {
+  page-break-after: always;
+}
+/* USED WHEN SCALING */
+.picwidth14 {
+  width: 1.3em;
+}
+.picwidth15 {
+  width: 1.2em;
+}
+.picwidth9 {
+  width: 0.8em;
+}
+INPUT[type="checkbox"] {
+  width: 1.6em;
+}
+.printUpscaleFont {
+  font-size: 1.2em;
+}
+.list.printUpscaleFont TD.printUpscaleFontFornavn {
+  padding-top: 0.45em;
+  padding-bottom: 0.45em;
+}
+/* Disse paddings bliver ikke store absolut set, for på adresselisten er browsere nød til at skalere ned for at få det til at passe i bredden.
+ * Det er blot for at få skabt en lille smule plads omkring teksten.
+ */
+.list.printUpscaleFont TD.printUpscaleFontPostnr {
+  padding-top: 1em;
+  padding-bottom: 1em;
+}
+
+
+/*# sourceMappingURL=print-css.bundle.css.map*/

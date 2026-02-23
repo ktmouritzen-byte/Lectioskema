@@ -1,0 +1,51 @@
+from __future__ import annotations
+# pyright: reportMissingImports=false
+
+from datetime import date, datetime
+from pathlib import Path
+import sys
+import unittest
+
+from dateutil import tz
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from lectio_sync.event_model import LectioEvent
+from lectio_sync.ical_writer import build_icalendar
+
+
+class ICalWriterTests(unittest.TestCase):
+    def test_writes_status_cancelled(self) -> None:
+        event = LectioEvent(
+            uid="uid-1@lectio.dk",
+            title="Cancelled Class",
+            start=datetime(2026, 2, 2, 9, 0, 0, tzinfo=tz.gettz("Europe/Copenhagen")),
+            end=datetime(2026, 2, 2, 10, 0, 0, tzinfo=tz.gettz("Europe/Copenhagen")),
+            all_day_date=None,
+            location="2.29",
+            description="Aflyst!",
+            status="CANCELLED",
+        )
+
+        ics = build_icalendar([event])
+        self.assertIn("STATUS:CANCELLED", ics)
+
+    def test_escapes_and_folds_description(self) -> None:
+        long_text = "Line 1, with comma; and semicolon\\ and newline\n" + ("x" * 120)
+        event = LectioEvent(
+            uid="uid-2@lectio.dk",
+            title="Test",
+            start=None,
+            end=None,
+            all_day_date=date(2026, 2, 6),
+            location="",
+            description=long_text,
+        )
+
+        ics = build_icalendar([event])
+        self.assertIn("DESCRIPTION:Line 1\\, with comma\\; and semicolon\\\\ and newline\\n", ics)
+        self.assertIn("\r\n ", ics)
+
+
+if __name__ == "__main__":
+    unittest.main()

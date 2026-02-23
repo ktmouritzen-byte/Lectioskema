@@ -1,0 +1,65 @@
+name: Update calendar.ics
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub schedules are UTC-only. We run twice and time-gate
+    # to get exactly ~08:00 Europe/Copenhagen in both winter/summer.
+    - cron: "5 6 * * *"  # 08:05 CEST (summer)
+    - cron: "5 7 * * *"  # 08:05 CET  (winter)
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Time gate (08:xx Copenhagen)
+        id: timegate
+        shell: bash
+        run: |
+          should_run=$(python -c "from datetime import datetime; from zoneinfo import ZoneInfo; now=datetime.now(ZoneInfo('Europe/Copenhagen')); print('true' if now.hour==8 else 'false')")
+          echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
+
+      - name: Install deps
+        if: steps.timegate.outputs.should_run == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -e .
+
+      - name: Fetch Lectio and build ICS
+        if: steps.timegate.outputs.should_run == 'true'
+        env:
+          LECTIO_SCHEDULE_URL: ${{ secrets.LECTIO_SCHEDULE_URL }}
+          LECTIO_COOKIE_HEADER: ${{ secrets.LECTIO_COOKIE_HEADER }}
+        run: |
+          python -m lectio_sync \
+            --fetch \
+            --schedule-url "$LECTIO_SCHEDULE_URL" \
+            --out "docs/calendar.ics" \
+            --tz "Europe/Copenhagen" \
+            --days-past 7 \
+            --days-future 90
+
+      - name: Commit and push if changed
+        if: steps.timegate.outputs.should_run == 'true'
+        run: |
+          git add docs/calendar.ics
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          stamp=$(date -u "+%Y-%m-%d %H:%M UTC")
+          git commit -m "Update calendar.ics ($stamp)"
+          git push
