@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 from lectio_sync.config import load_config_from_env_with_overrides
 from lectio_sync.html_parser import (
@@ -10,7 +11,38 @@ from lectio_sync.html_parser import (
     parse_lectio_advanced_schedule_html_text,
 )
 from lectio_sync.ical_writer import write_icalendar
-from lectio_sync.lectio_fetch import fetch_weeks_html, iter_weeks_for_window
+from lectio_sync.lectio_fetch import fetch_weeks_html_with_diagnostics, iter_weeks_for_window
+
+
+def _redact_url_for_logs(url: str) -> str:
+    """Return scheme://host/path (query and fragment removed)."""
+    try:
+        p = urlparse(url)
+        scheme = p.scheme or "https"
+        netloc = p.netloc or "(no-host)"
+        path = p.path or "/"
+        return f"{scheme}://{netloc}{path}"
+    except Exception:
+        return "(unparseable-url)"
+
+
+def _classify_fetched_page(html: str) -> str:
+    low = (html or "").lower()
+    if "m_content_skemamednavigation_skema_skematabel" in low:
+        return "schedule-table-present"
+    if "s2skemabrik" in low:
+        return "schedule-bricks-present"
+    if "mitid" in low:
+        return "mitid/login"
+    if "log ind" in low or "login" in low:
+        return "login"
+    if "adgang" in low and "nægt" in low:
+        return "access-denied"
+    if "error" in low and "request" in low:
+        return "error-page"
+    if "<html" not in low and "<!doctype" not in low:
+        return "not-html-or-undecoded"
+    return "unknown-html"
 
 
 def main() -> int:
@@ -77,6 +109,22 @@ def main() -> int:
         help="Emit cancelled activities as VEVENT with STATUS:CANCELLED instead of dropping them",
     )
     parser.add_argument("--debug", action="store_true", help="Print parser diagnostics")
+    parser.add_argument(
+        "--debug-fetch",
+        action="store_true",
+        help=(
+            "Print non-sensitive fetch diagnostics (status/content-type/encoding and redacted URL) for each week. "
+            "Does not print the fetched HTML."
+        ),
+    )
+    parser.add_argument(
+        "--debug-dump-html-dir",
+        type=Path,
+        help=(
+            "Write fetched HTML pages to this directory for debugging. WARNING: contains private schedule data. "
+            "Do not enable on public CI runs."
+        ),
+    )
     args = parser.parse_args()
 
     if args.days_past is not None and args.days_past < 0:
@@ -100,7 +148,7 @@ def main() -> int:
             parser.error("LECTIO_COOKIE_HEADER is required for --fetch (prefer GitHub Secret / env var)")
 
         weeks = iter_weeks_for_window(timezone_name=timezone_name, days_past=days_past, days_future=days_future)
-        fetched = fetch_weeks_html(
+        fetched = fetch_weeks_html_with_diagnostics(
             schedule_url=schedule_url,
             cookie_header=cookie_header,
             weeks=weeks,
@@ -109,7 +157,28 @@ def main() -> int:
 
         events = []
         seen_uids: set[str] = set()
-        for wk, html in fetched:
+        if args.debug_dump_html_dir is not None:
+            args.debug_dump_html_dir.mkdir(parents=True, exist_ok=True)
+
+        for wk, html, diag in fetched:
+            page_kind = _classify_fetched_page(html)
+
+            if args.debug_fetch:
+                print(
+                    "Fetch diagnostics: "
+                    f"week={wk.week_param}, status={diag.status_code}, "
+                    f"content-type={diag.content_type or '(missing)'}, "
+                    f"content-encoding={diag.content_encoding or 'identity'}, "
+                    f"bytes={diag.raw_bytes_len}, chars={diag.decoded_chars_len}, "
+                    f"final-url={_redact_url_for_logs(diag.final_url)}, "
+                    f"kind={page_kind}"
+                )
+
+            if args.debug_dump_html_dir is not None:
+                # WARNING: contains private data. Only for local/manual debugging.
+                dump_path = args.debug_dump_html_dir / f"lectio-week-{wk.week_param}.html"
+                dump_path.write_text(html, encoding="utf-8", errors="replace")
+
             try:
                 week_events = parse_lectio_advanced_schedule_html_text(
                     html,
@@ -120,9 +189,14 @@ def main() -> int:
                     debug=args.debug,
                 )
             except Exception as exc:
+                # Keep the raised exception actionable but privacy-preserving.
                 raise RuntimeError(
                     "Failed to parse fetched Lectio HTML. This often means the cookie is invalid/expired, "
-                    "or the URL did not return the schedule page."
+                    "or the URL did not return the schedule page. "
+                    f"(week={wk.week_param}, status={diag.status_code}, content-type={diag.content_type or '(missing)'}, "
+                    f"content-encoding={diag.content_encoding or 'identity'}, final-url={_redact_url_for_logs(diag.final_url)}, "
+                    f"kind={page_kind}). "
+                    "If your secret contains a full header line like 'Cookie: ...', remove the 'Cookie:' prefix (or update the secret)."
                 ) from exc
 
             for ev in week_events:

@@ -55,6 +55,25 @@ class LectioFetchTests(unittest.TestCase):
         self.assertIn("<table", out)
         self.assertIn("m_Content_SkemaMedNavigation_skema_skematabel", out)
 
+    def test_fetch_html_strips_cookie_prefix_and_sets_identity_encoding(self) -> None:
+        html = "<html><body>ok</body></html>"
+        captured = {"cookie": None, "accept_encoding": None}
+
+        def _fake_urlopen(req, timeout=30):
+            # urllib's Request stores headers in a case-insensitive mapping,
+            # but the exact key casing is not guaranteed.
+            hdrs = {k.lower(): v for k, v in dict(req.header_items()).items()}
+            captured["cookie"] = hdrs.get("cookie")
+            captured["accept_encoding"] = hdrs.get("accept-encoding")
+            return _FakeResponse(body=html.encode("utf-8"), headers=_FakeHeaders(content_encoding=None))
+
+        with patch("lectio_sync.lectio_fetch.urlopen", _fake_urlopen):
+            out = fetch_html(url="https://example.invalid/", cookie_header="Cookie: a=b; c=d", timeout_seconds=5)
+
+        self.assertEqual(out, html)
+        self.assertEqual(captured["cookie"], "a=b; c=d")
+        self.assertEqual(captured["accept_encoding"], "identity")
+
 
 if __name__ == "__main__":
     unittest.main()

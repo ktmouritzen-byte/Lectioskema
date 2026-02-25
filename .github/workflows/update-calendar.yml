@@ -48,7 +48,8 @@ jobs:
             --out "docs/calendar.ics" \
             --tz "Europe/Copenhagen" \
             --days-past 7 \
-            --days-future 90
+              --days-future 90 \
+              --debug-fetch
 
       - name: Commit and push if changed
         if: github.event_name == 'workflow_dispatch' || steps.timegate.outputs.should_run == 'true'

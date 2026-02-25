@@ -31,8 +31,10 @@ The success signal is that the GitHub Actions job prints “Wrote <N> events to 
 - [x] (2026-02-25) Identify failure location: parser cannot find any <table> in fetched HTML.
 - [x] (2026-02-25) Implement robust HTTP Content-Encoding handling (gzip/deflate) in src/lectio_sync/lectio_fetch.py.
 - [x] (2026-02-25) Add unit test covering gzip decompression: tests/test_lectio_fetch.py.
-- [ ] Add fetch-time diagnostics to make failures self-explaining without leaking sensitive schedule contents.
-- [ ] Update GitHub Actions workflow to enable diagnostics on manual runs (workflow_dispatch) and/or upload a debug artifact on failure.
+- [x] (2026-02-25) Add fetch-time diagnostics (status/content-type/encoding, redacted URL, page classification) without printing HTML.
+- [x] (2026-02-25) Normalize cookie header input (strip accidental 'Cookie:' prefix and surrounding quotes).
+- [x] (2026-02-25) Update GitHub Actions workflow to enable safe diagnostics via --debug-fetch.
+- [ ] Optional: add debug HTML dump + artifact upload gated behind workflow_dispatch input.
 - [ ] Document secret setup + how to verify the fetched page is actually the Advanced Schedule.
 - [ ] Validate the fix by re-running the workflow with valid secrets.
 
@@ -60,6 +62,8 @@ The success signal is that the GitHub Actions job prints “Wrote <N> events to 
 In CI, many servers return compressed responses. urllib does not automatically decompress gzip/deflate. If the code decodes compressed bytes as UTF-8, BeautifulSoup may see no HTML tags at all, leading to “No <table> elements found”.
 
 Status: mitigated by the change in src/lectio_sync/lectio_fetch.py.
+
+Additional note: Some servers may return Brotli (Content-Encoding=br). We now request identity encoding to avoid this; if we still see br, we need either a Brotli decoder or different headers.
 
 2) Invalid/expired cookie or wrong schedule URL
 
@@ -102,10 +106,14 @@ Implementation steps
 
 2) Update src/lectio_sync/cli.py to include the metadata in the error path for --fetch.
 
+Implementation status: DONE. The CLI now supports --debug-fetch and emits a privacy-preserving summary on failure even without HTML dumping.
+
 3) Add an opt-in “dump” mode for manual debugging:
    - New CLI flag: --debug-dump-html-dir <path>
    - On failure (or always when enabled), write the fetched HTML for the failing week to that directory.
    - Do not print the HTML to stdout/stderr.
+
+Implementation status: DONE (CLI flag exists). Artifact upload remains optional work.
 
 Acceptance
 
