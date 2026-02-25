@@ -298,7 +298,9 @@ def parse_lectio_advanced_schedule_html_text(
     emit_cancelled_events: bool = False,
     debug: bool = False,
 ) -> list[LectioEvent]:
-    soup = BeautifulSoup(html, "lxml")
+    # Use Python's builtin parser to avoid lxml/bs4 deprecation warnings
+    # while remaining robust for the Lectio HTML used in tests.
+    soup = BeautifulSoup(html, "html.parser")
 
     table, table_selector_used = _locate_schedule_table(soup)
 

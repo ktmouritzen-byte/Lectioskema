@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+import gzip
+import zlib
 from typing import Iterable
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
@@ -95,6 +97,25 @@ def fetch_html(*, url: str, cookie_header: str, timeout_seconds: int = 30) -> st
     try:
         with urlopen(req, timeout=timeout_seconds) as resp:
             raw = resp.read()
+
+            # Some servers send compressed responses even when clients don't
+            # explicitly ask. urllib does not automatically decompress.
+            content_encoding = (resp.headers.get("Content-Encoding") or "").strip().lower()
+            if "gzip" in content_encoding:
+                raw = gzip.decompress(raw)
+            elif "deflate" in content_encoding:
+                try:
+                    raw = zlib.decompress(raw)
+                except zlib.error:
+                    # Raw DEFLATE stream (no zlib header)
+                    raw = zlib.decompress(raw, -zlib.MAX_WBITS)
+            elif raw[:2] == b"\x1f\x8b":
+                # Heuristic: gzip magic bytes.
+                try:
+                    raw = gzip.decompress(raw)
+                except Exception:
+                    pass
+
             # lectio.dk pages are typically UTF-8
             charset = "utf-8"
             try:
