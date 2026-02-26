@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -73,7 +73,12 @@ def _single_line(text: str) -> str:
     return " ".join((text or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")).strip()
 
 
-def build_icalendar(events: Iterable[LectioEvent], dtstamp: datetime | None = None) -> str:
+def build_icalendar(
+    events: Iterable[LectioEvent],
+    dtstamp: datetime | None = None,
+    *,
+    cal_name: str | None = None,
+) -> str:
     stamp = _dtstamp_utc(dtstamp)
 
     lines: list[str] = [
@@ -81,6 +86,8 @@ def build_icalendar(events: Iterable[LectioEvent], dtstamp: datetime | None = No
         "VERSION:2.0",
         "PRODID:-//LectioParser//Custom//EN",
     ]
+    if cal_name:
+        lines.append(_prop("X-WR-CALNAME", cal_name))
 
     for ev in events:
         lines.append("BEGIN:VEVENT")
@@ -100,8 +107,9 @@ def build_icalendar(events: Iterable[LectioEvent], dtstamp: datetime | None = No
                 lines.append("END:VEVENT")
                 continue
             d = _format_date(ev.all_day_date)
+            d_end = _format_date(ev.all_day_date + timedelta(days=1))
             lines.append(_prop_param("DTSTART", "VALUE=DATE", d))
-            lines.append(_prop_param("DTEND", "VALUE=DATE", d))
+            lines.append(_prop_param("DTEND", "VALUE=DATE", d_end))
         else:
             if ev.start is None or ev.end is None:
                 lines.append("END:VEVENT")
@@ -122,6 +130,11 @@ def build_icalendar(events: Iterable[LectioEvent], dtstamp: datetime | None = No
     return "\r\n".join(lines) + "\r\n"
 
 
-def write_icalendar(events: Iterable[LectioEvent], output_path: Path) -> None:
-    ics = build_icalendar(events)
+def write_icalendar(
+    events: Iterable[LectioEvent],
+    output_path: Path,
+    *,
+    cal_name: str | None = None,
+) -> None:
+    ics = build_icalendar(events, cal_name=cal_name)
     output_path.write_text(ics, encoding="utf-8", newline="")

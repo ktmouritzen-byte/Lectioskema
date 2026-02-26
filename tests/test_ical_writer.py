@@ -46,6 +46,30 @@ class ICalWriterTests(unittest.TestCase):
         self.assertIn("DESCRIPTION:Line 1\\, with comma\\; and semicolon\\\\ and newline\\n", ics)
         self.assertIn("\r\n ", ics)
 
+    def test_all_day_dtend_is_exclusive(self) -> None:
+        """RFC5545: all-day DTEND must be the day AFTER DTSTART (exclusive)."""
+        event = LectioEvent(
+            uid="uid-allday@lectio.dk",
+            title="All Day Event",
+            start=None,
+            end=None,
+            all_day_date=date(2026, 2, 26),
+            location="",
+            description="",
+        )
+
+        ics = build_icalendar([event])
+        self.assertIn("DTSTART;VALUE=DATE:20260226", ics)
+        self.assertIn("DTEND;VALUE=DATE:20260227", ics)
+
+    def test_cal_name_written_as_x_wr_calname(self) -> None:
+        ics = build_icalendar([], cal_name="lectio opgaver")
+        self.assertIn("X-WR-CALNAME:lectio opgaver", ics)
+
+    def test_cal_name_absent_when_not_set(self) -> None:
+        ics = build_icalendar([])
+        self.assertNotIn("X-WR-CALNAME", ics)
+
 
 if __name__ == "__main__":
     unittest.main()

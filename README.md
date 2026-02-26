@@ -296,6 +296,64 @@ If Lectio does not provide a stable unique ID per event in the HTML:
 
 ---
 
+## Assignments feed (Opgaver)
+
+In addition to the schedule feed, this repo generates a second iCalendar feed containing only upcoming
+Lectio assignment deadlines, sourced from the **OpgaverElev.aspx** page.
+
+### Output files
+
+| File | Description |
+|---|---|
+| `docs/calendar.ics` | Timetable / schedule events |
+| `docs/assignments.ics` | Upcoming assignment deadlines (calendar name: *lectio opgaver*) |
+
+Both files are published via GitHub Pages and updated on the same schedule.
+
+### Assignment event format
+
+Each assignment becomes an **all-day event** on its *Frist* (due date):
+
+- **SUMMARY** — `{Status} • {Opgavetitel} • {Hold} • {Elevtid}`
+- **DESCRIPTION** — the *Opgavenote* text from Lectio
+- **DTSTART/DTEND** — the due date (all-day; DTEND is the following day per RFC 5545)
+- **UID** — `{exerciseid}@lectio.dk` (stable; updates overwrite, removed items disappear)
+
+Only assignments whose due date is **≥ today** (Europe/Copenhagen) are included.
+
+### Subscribing
+
+Once hosted, subscribe in your calendar client to:
+- `https://<your-github-username>.github.io/<repo-name>/assignments.ics`
+
+You can also use the `webcal://` equivalent.
+
+### Building locally (file mode)
+
+```powershell
+# Schedule + assignments in one run
+py -m lectio_sync `
+  --html path\to\lectio.html `
+  --out docs\calendar.ics `
+  --assignments-html path\to\opgaver.html `
+  --assignments-out docs\assignments.ics `
+  --tz Europe/Copenhagen
+```
+
+```powershell
+# Using the PowerShell helper script
+.\scripts\update_ics.ps1 `
+  -HtmlPath path\to\lectio.html `
+  -AssignmentsHtmlPath path\to\opgaver.html
+```
+
+### Fetching via CI (GitHub Actions)
+
+Set the GitHub secret `LECTIO_ASSIGNMENTS_URL` to your `OpgaverElev.aspx` URL.
+The `update-calendar.yml` workflow will then fetch and commit both ICS feeds automatically.
+
+---
+
 ## Publish on GitHub Pages
 We will write the output to `docs/calendar.ics`. Configure GitHub Pages to serve from the `docs/` folder.
 

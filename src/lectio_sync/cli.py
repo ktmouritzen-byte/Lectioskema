@@ -9,9 +9,11 @@ from lectio_sync.config import load_config_from_env_with_overrides
 from lectio_sync.html_parser import (
     parse_lectio_advanced_schedule_html,
     parse_lectio_advanced_schedule_html_text,
+    parse_lectio_assignments_html,
+    parse_lectio_assignments_html_text,
 )
 from lectio_sync.ical_writer import write_icalendar
-from lectio_sync.lectio_fetch import fetch_weeks_html_with_diagnostics, iter_weeks_for_window
+from lectio_sync.lectio_fetch import fetch_weeks_html_with_diagnostics, fetch_html_with_diagnostics, iter_weeks_for_window
 
 
 def _redact_url_for_logs(url: str) -> str:
@@ -107,6 +109,26 @@ def main() -> int:
         "--emit-cancelled-events",
         action="store_true",
         help="Emit cancelled activities as VEVENT with STATUS:CANCELLED instead of dropping them",
+    )
+    parser.add_argument(
+        "--assignments-html",
+        type=Path,
+        help="Path to saved OpgaverElev.aspx HTML file for building the assignments feed",
+    )
+    parser.add_argument(
+        "--assignments-out",
+        type=Path,
+        help="Output path for assignments ICS feed (default: docs/assignments.ics when assignments source provided)",
+    )
+    parser.add_argument(
+        "--assignments-url",
+        type=str,
+        help="URL for OpgaverElev.aspx (also LECTIO_ASSIGNMENTS_URL env)",
+    )
+    parser.add_argument(
+        "--fetch-assignments",
+        action="store_true",
+        help="Fetch the assignments page using the same cookie header (requires --fetch and --assignments-url)",
     )
     parser.add_argument("--debug", action="store_true", help="Print parser diagnostics")
     parser.add_argument(
@@ -221,6 +243,41 @@ def main() -> int:
         write_icalendar(events, out_path)
 
         print(f"Wrote {len(events)} events to {out_path}")
+
+        # -- Assignments feed (fetch mode) --
+        if args.fetch_assignments:
+            assignments_url = args.assignments_url or os.environ.get("LECTIO_ASSIGNMENTS_URL", "")
+            if not assignments_url.strip():
+                parser.error("--assignments-url is required for --fetch-assignments (or set LECTIO_ASSIGNMENTS_URL)")
+
+            assignments_html, assign_diag = fetch_html_with_diagnostics(
+                url=assignments_url,
+                cookie_header=cookie_header,
+                timeout_seconds=args.fetch_timeout_seconds,
+            )
+            if args.debug_fetch:
+                print(
+                    "Fetch diagnostics (assignments): "
+                    f"status={assign_diag.status_code}, "
+                    f"content-type={assign_diag.content_type or '(missing)'}, "
+                    f"bytes={assign_diag.raw_bytes_len}, "
+                    f"final-url={_redact_url_for_logs(assign_diag.final_url)}"
+                )
+            try:
+                assignment_events = parse_lectio_assignments_html_text(
+                    assignments_html, timezone_name, debug=args.debug
+                )
+            except Exception as exc:
+                raise RuntimeError(
+                    "Failed to parse fetched assignments HTML. "
+                    f"(status={assign_diag.status_code}, final-url={_redact_url_for_logs(assign_diag.final_url)})"
+                ) from exc
+
+            assign_out = args.assignments_out or Path("docs/assignments.ics")
+            assign_out.parent.mkdir(parents=True, exist_ok=True)
+            write_icalendar(assignment_events, assign_out, cal_name="lectio opgaver")
+            print(f"Wrote {len(assignment_events)} assignments to {assign_out}")
+
         return 0
 
     config = load_config_from_env_with_overrides(
@@ -251,6 +308,18 @@ def main() -> int:
     write_icalendar(events, out_path)
 
     print(f"Wrote {len(events)} events to {out_path}")
+
+    # -- Assignments feed (file mode) --
+    if args.assignments_html is not None:
+        tz_name = args.tz or os.environ.get("LECTIO_TIMEZONE", "Europe/Copenhagen")
+        assignment_events = parse_lectio_assignments_html(
+            args.assignments_html, tz_name, debug=args.debug
+        )
+        assign_out = args.assignments_out or Path("docs/assignments.ics")
+        assign_out.parent.mkdir(parents=True, exist_ok=True)
+        write_icalendar(assignment_events, assign_out, cal_name="lectio opgaver")
+        print(f"Wrote {len(assignment_events)} assignments to {assign_out}")
+
     return 0
 
 

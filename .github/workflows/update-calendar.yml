@@ -41,6 +41,7 @@ jobs:
         env:
           LECTIO_SCHEDULE_URL: ${{ secrets.LECTIO_SCHEDULE_URL }}
           LECTIO_COOKIE_HEADER: ${{ secrets.LECTIO_COOKIE_HEADER }}
+          LECTIO_ASSIGNMENTS_URL: ${{ secrets.LECTIO_ASSIGNMENTS_URL }}
         run: |
           python -m lectio_sync \
             --fetch \
@@ -49,12 +50,15 @@ jobs:
             --tz "Europe/Copenhagen" \
             --days-past 7 \
               --days-future 90 \
-              --debug-fetch
+              --debug-fetch \
+              --fetch-assignments \
+              --assignments-url "$LECTIO_ASSIGNMENTS_URL" \
+              --assignments-out "docs/assignments.ics"
 
       - name: Commit and push if changed
         if: github.event_name == 'workflow_dispatch' || steps.timegate.outputs.should_run == 'true'
         run: |
-          git add docs/calendar.ics
+          git add docs/calendar.ics docs/assignments.ics
           if git diff --cached --quiet; then
             echo "No changes."
             exit 0
@@ -62,5 +66,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           stamp=$(date -u "+%Y-%m-%d %H:%M UTC")
-          git commit -m "Update calendar.ics ($stamp)"
+          git commit -m "Update calendars ($stamp)"
           git push
